@@ -106,7 +106,8 @@ class _HomePageState extends State<HomePage> {
               title: value.allExpenses[index].name,
               trailing: formatAmount(value.allExpenses[index].amount),
               onEditPressed: (context) => openEditBox(value.allExpenses[index]),
-              onDeletePressed: (context) => openDeleteBox(value.allExpenses[index]),
+              onDeletePressed: (context) =>
+                  openDeleteBox(value.allExpenses[index]),
             );
           },
         ),
