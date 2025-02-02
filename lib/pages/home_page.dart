@@ -1,3 +1,4 @@
+import 'package:expense_tracker/components/expense_bar_graph.dart';
 import 'package:expense_tracker/components/expense_list_tile.dart';
 import 'package:expense_tracker/helper/helper_functions.dart';
 import 'package:flutter/material.dart';
@@ -14,13 +15,23 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /* Text controllers */
   TextEditingController nameController = TextEditingController();
   TextEditingController amountController = TextEditingController();
+
+  /* Futures */
+  Future<Map<int, double>>? _montlyTotalsFuture;
 
   @override
   void initState() {
     Provider.of<ExpenseDatabase>(context, listen: false).readExpenses();
+    refreshGraphData();
     super.initState();
+  }
+
+  void refreshGraphData() {
+    _montlyTotalsFuture = Provider.of<ExpenseDatabase>(context, listen: false)
+        .calculateMothlyTotals();
   }
 
   void openNewExpenseBox() {
@@ -94,24 +105,70 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Consumer<ExpenseDatabase>(
-      builder: (context, value, child) => Scaffold(
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => openNewExpenseBox(),
-          child: Icon(Icons.add),
-        ),
-        body: ListView.builder(
-          itemCount: value.allExpenses.length,
-          itemBuilder: (context, index) {
-            return ExpenseListTile(
-              title: value.allExpenses[index].name,
-              trailing: formatAmount(value.allExpenses[index].amount),
-              onEditPressed: (context) => openEditBox(value.allExpenses[index]),
-              onDeletePressed: (context) =>
-                  openDeleteBox(value.allExpenses[index]),
-            );
-          },
-        ),
-      ),
+      builder: (context, value, child) {
+        /* Get dates */
+        int startMonth = value.getStartMonth();
+        int startYear = value.getStartYear();
+        int currentMonth = DateTime.now().month;
+        int currentYear = DateTime.now().year;
+
+        /* Number of months since first month */
+        int monthCount = calculateMonthCount(
+          startYear,
+          startMonth,
+          currentYear,
+          currentMonth,
+        );
+
+        return Scaffold(
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => openNewExpenseBox(),
+            child: Icon(Icons.add),
+          ),
+          body: Column(
+            children: [
+              // Graph UI
+              SizedBox(
+                height: 250,
+                child: FutureBuilder(
+                  future: _montlyTotalsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      final monthlyTotals = snapshot.data ?? {};
+                      List<double> monthlySummary = List.generate(monthCount,
+                          (index) => monthlyTotals[index + startMonth] ?? 0.0);
+
+                      return ExpenseBarGraph(
+                        monthlySummary: monthlySummary,
+                        startMonth: startMonth,
+                      );
+                    } else {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                  },
+                ),
+              ),
+
+              // Expense list UI
+              Expanded(
+                child: ListView.builder(
+                  itemCount: value.allExpenses.length,
+                  itemBuilder: (context, index) {
+                    return ExpenseListTile(
+                      title: value.allExpenses[index].name,
+                      trailing: formatAmount(value.allExpenses[index].amount),
+                      onEditPressed: (context) =>
+                          openEditBox(value.allExpenses[index]),
+                      onDeletePressed: (context) =>
+                          openDeleteBox(value.allExpenses[index]),
+                    );
+                  },
+                ),
+              )
+            ],
+          ),
+        );
+      },
     );
   }
 
